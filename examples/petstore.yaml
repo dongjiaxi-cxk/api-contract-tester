@@ -1,0 +1,56 @@
+﻿openapi: "3.0.2"
+info:
+  title: Swagger Petstore
+  version: "1.0.0"
+servers:
+  - url: https://petstore.swagger.io/v2
+paths:
+  /pet/findByStatus:
+    get:
+      operationId: findPetsByStatus
+      parameters:
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+  /pet/{petId}:
+    get:
+      operationId: getPetById
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: successful operation
+        "404":
+          description: Pet not found
+  /store/inventory:
+    get:
+      operationId: getInventory
+      responses:
+        "200":
+          description: successful operation
+  /user/login:
+    get:
+      operationId: loginUser
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: password
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
