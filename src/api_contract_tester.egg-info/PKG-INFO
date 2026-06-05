@@ -6,3 +6,4 @@ Requires-Python: >=3.10
 Requires-Dist: requests
 Requires-Dist: pyyaml
 Requires-Dist: click
+Requires-Dist: jsonschema
