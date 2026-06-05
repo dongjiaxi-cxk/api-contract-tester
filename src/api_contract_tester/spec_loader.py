@@ -1,50 +1,35 @@
-"""Load and parse OpenAPI 3.x specification files."""
+"""Load and parse OpenAPI 3.x specification files with env var support."""
 
 import json
 import yaml
 from pathlib import Path
+from .test_generator import resolve_env_in_dict
 
 
 class SpecLoader:
-    """Loads an OpenAPI spec and extracts endpoint information."""
+    """Loads an OpenAPI spec, resolves env vars, and extracts endpoints."""
 
     def __init__(self, spec_path: str):
         self.spec_path = Path(spec_path)
         self.spec = self._load_spec()
 
     def _load_spec(self) -> dict:
-        """Load spec from YAML or JSON file."""
         content = self.spec_path.read_text(encoding="utf-8")
         if self.spec_path.suffix in (".yaml", ".yml"):
-            return yaml.safe_load(content)
+            raw = yaml.safe_load(content)
         elif self.spec_path.suffix == ".json":
-            return json.loads(content)
+            raw = json.loads(content)
         else:
             raise ValueError(f"Unsupported spec format: {self.spec_path.suffix}")
+        return resolve_env_in_dict(raw)
 
     def get_base_url(self) -> str:
-        """Extract base URL from spec servers section."""
         servers = self.spec.get("servers", [])
         if servers:
             return servers[0]["url"]
         return ""
 
     def get_endpoints(self) -> list[dict]:
-        """Return list of all endpoints with method, path, and schemas.
-
-        Returns:
-            [
-                {
-                    "method": "GET",
-                    "path": "/users",
-                    "operation_id": "getUsers",
-                    "parameters": [...],
-                    "request_body": {...},
-                    "responses": {...}
-                },
-                ...
-            ]
-        """
         endpoints = []
         paths = self.spec.get("paths", {})
 
