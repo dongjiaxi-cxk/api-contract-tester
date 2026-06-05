@@ -12,25 +12,22 @@ class TestCase:
     base_url: str
     params: dict = field(default_factory=dict)
     headers: dict = field(default_factory=dict)
+    path_params: dict = field(default_factory=dict)
     body: dict | None = None
     expected_status: int = 200
     expected_content_type: str = ""
+    response_schema: dict | None = None
 
 
 class TestGenerator:
     """Generates test cases from OpenAPI spec endpoints."""
 
-    def __init__(self, base_url: str, endpoints: list[dict]):
+    def __init__(self, base_url: str, endpoints: list):
         self.base_url = base_url.rstrip("/")
         self.endpoints = endpoints
 
-    def generate(self) -> list[TestCase]:
-        """Generate test cases for all endpoints.
-
-        For each endpoint, it creates:
-        - A success case (expected 2xx status)
-        - For POST/PUT, often includes a minimal request body
-        """
+    def generate(self) -> list:
+        """Generate test cases for all endpoints."""
         test_cases = []
 
         for endpoint in self.endpoints:
@@ -38,19 +35,29 @@ class TestGenerator:
             path = endpoint["path"]
             operation_id = endpoint["operation_id"] or f"{method}{path}"
 
-            # Determine expected status code from responses
+            # Determine expected status code and response schema
             expected_status = 200
+            response_schema = None
             responses = endpoint.get("responses", {})
             for status_code in responses:
                 if status_code.startswith("2"):
                     expected_status = int(status_code)
+                    # Extract JSON response schema
+                    response = responses[status_code]
+                    content = response.get("content", {})
+                    json_content = content.get("application/json", {})
+                    response_schema = json_content.get("schema")
                     break
 
-            # Build params from query parameters
+            # Build query params
             params = {}
+            # Build path params (e.g. /pet/{petId})
+            path_params = {}
             for param in endpoint.get("parameters", []):
                 if param.get("in") == "query" and param.get("required"):
                     params[param["name"]] = self._sample_value(param)
+                elif param.get("in") == "path":
+                    path_params[param["name"]] = self._sample_value(param)
 
             # Build minimal body for POST/PUT
             body = None
@@ -67,13 +74,15 @@ class TestGenerator:
                 path=path,
                 base_url=self.base_url,
                 params=params,
+                path_params=path_params,
                 body=body,
                 expected_status=expected_status,
+                response_schema=response_schema,
             ))
 
         return test_cases
 
-    def _sample_value(self, param: dict) -> str | int:
+    def _sample_value(self, param: dict):
         """Generate a sample value based on parameter schema."""
         schema = param.get("schema", {})
         schema_type = schema.get("type", "string")

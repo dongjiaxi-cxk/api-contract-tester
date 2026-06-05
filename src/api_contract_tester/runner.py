@@ -11,18 +11,13 @@ class TestRunner:
         self.timeout = timeout
 
     def run(self, test_case: TestCase) -> dict:
-        """Execute a single test case and return the result.
+        """Execute a single test case and return the result."""
+        # Replace path parameters like {petId} with actual values
+        path = test_case.path
+        for key, value in test_case.path_params.items():
+            path = path.replace("{" + key + "}", str(value))
 
-        Returns:
-            {
-                "test_case": test_case,
-                "passed": True/False,
-                "status_code": ...,
-                "response_time_ms": ...,
-                "error": "..."
-            }
-        """
-        url = f"{test_case.base_url}{test_case.path}"
+        url = test_case.base_url + path
         result = {
             "test_case": test_case,
             "passed": False,
@@ -53,6 +48,6 @@ class TestRunner:
 
         return result
 
-    def run_all(self, test_cases: list[TestCase]) -> list[dict]:
+    def run_all(self, test_cases: list) -> list:
         """Run all test cases and return results."""
         return [self.run(tc) for tc in test_cases]

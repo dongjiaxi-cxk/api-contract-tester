@@ -8,7 +8,7 @@ class Reporter:
     """Generates test reports from validation results."""
 
     def console_report(self, results: list) -> str:
-        """Generate a colorful console report."""
+        """Generate a console report."""
         total = len(results)
         passed = sum(1 for r in results if r["passed"])
         failed = total - passed
@@ -19,21 +19,21 @@ class Reporter:
         lines.append("=" * 60)
         lines.append("  API Contract Test Report")
         lines.append("=" * 60)
-        lines.append(f"  Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        lines.append(f"  Total: {total} | PASS: {passed} | FAIL: {failed}")
-        lines.append(f"  Total response time: {total_time}ms")
+        lines.append("  Date: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        lines.append("  Total: " + str(total) + " | PASS: " + str(passed) + " | FAIL: " + str(failed))
+        lines.append("  Total response time: " + str(total_time) + "ms")
         lines.append("-" * 60)
 
         for r in results:
             tc = r["test_case"]
             status_icon = "PASS" if r["passed"] else "FAIL"
-            lines.append(f"\n  [{status_icon}] {tc.method} {tc.path}")
+            lines.append("")
+            lines.append("  [" + status_icon + "] " + tc.method + " " + tc.path)
             for msg in r.get("messages", []):
-                lines.append(f"     {msg}")
+                lines.append("     " + msg)
 
         lines.append("")
         lines.append("=" * 60)
-
         return "\n".join(lines)
 
     def json_report(self, results: list) -> str:
@@ -59,3 +59,83 @@ class Reporter:
             ],
         }
         return json.dumps(report, indent=2, ensure_ascii=False)
+
+    def html_report(self, results: list) -> str:
+        """Generate a self-contained HTML report."""
+        total = len(results)
+        passed = sum(1 for r in results if r["passed"])
+        failed = total - passed
+        pass_rate = round(passed / total * 100) if total > 0 else 0
+
+        rows = ""
+        for r in results:
+            tc = r["test_case"]
+            status_class = "pass" if r["passed"] else "fail"
+            status_text = "PASS" if r["passed"] else "FAIL"
+            msgs = "".join("<li>" + m + "</li>" for m in r.get("messages", []))
+            rows += f"""
+            <tr class="{status_class}">
+                <td><span class="badge {status_class}">{status_text}</span></td>
+                <td><strong>{tc.method}</strong></td>
+                <td>{tc.path}</td>
+                <td>{r.get("status_code", "-")}</td>
+                <td>{r.get("response_time_ms", "-")}ms</td>
+                <td><ul>{msgs}</ul></td>
+            </tr>"""
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Contract Test Report</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; padding: 20px; }}
+.container {{ max-width: 1000px; margin: 0 auto; }}
+.header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 20px; }}
+.header h1 {{ font-size: 24px; margin-bottom: 10px; }}
+.header .meta {{ opacity: 0.9; font-size: 14px; }}
+.stats {{ display: flex; gap: 15px; margin-bottom: 20px; }}
+.stat-card {{ flex: 1; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }}
+.stat-card .number {{ font-size: 32px; font-weight: bold; }}
+.stat-card .label {{ font-size: 13px; color: #888; margin-top: 5px; }}
+.stat-card.pass .number {{ color: #22c55e; }}
+.stat-card.fail .number {{ color: #ef4444; }}
+.stat-card.rate .number {{ color: #667eea; }}
+table {{ width: 100%; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border-collapse: collapse; }}
+th {{ background: #f8fafc; text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }}
+td {{ padding: 12px 16px; border-top: 1px solid #f1f5f9; font-size: 14px; }}
+tr.pass {{ border-left: 4px solid #22c55e; }}
+tr.fail {{ border-left: 4px solid #ef4444; background: #fef2f2; }}
+.badge {{ display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }}
+.badge.pass {{ background: #dcfce7; color: #16a34a; }}
+.badge.fail {{ background: #fee2e2; color: #dc2626; }}
+ul {{ list-style: none; padding: 0; }}
+li {{ font-size: 12px; color: #666; padding: 2px 0; }}
+.footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #aaa; }}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+    <h1>API Contract Test Report</h1>
+    <div class="meta">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</div>
+</div>
+<div class="stats">
+    <div class="stat-card pass"><div class="number">{passed}</div><div class="label">Passed</div></div>
+    <div class="stat-card fail"><div class="number">{failed}</div><div class="label">Failed</div></div>
+    <div class="stat-card rate"><div class="number">{pass_rate}%</div><div class="label">Pass Rate</div></div>
+</div>
+<table>
+<thead>
+<tr>
+    <th>Status</th><th>Method</th><th>Path</th><th>HTTP Code</th><th>Time</th><th>Details</th>
+</tr>
+</thead>
+<tbody>{rows}</tbody>
+</table>
+<div class="footer">API Contract Tester v0.1.0</div>
+</div>
+</body>
+</html>"""
