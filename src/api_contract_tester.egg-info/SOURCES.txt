@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 src/api_contract_tester/__init__.py
 src/api_contract_tester/cli.py
