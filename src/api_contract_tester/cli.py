@@ -16,14 +16,15 @@ from .reporter import Reporter
 @click.option("--base-url", "-b", default=None, help="Override API base URL")
 @click.option("--timeout", "-t", default=10, help="Request timeout in seconds")
 @click.option("--json-report", "-j", is_flag=True, help="Output JSON report")
+@click.option("--html-report", is_flag=True, help="Output HTML report")
 @click.option("--output", "-o", default=None, help="Save report to file")
-def main(spec_file, base_url, timeout, json_report, output):
+def main(spec_file, base_url, timeout, json_report, html_report, output):
     """Test an API against its OpenAPI specification.
 
     SPEC_FILE: Path to OpenAPI 3.x spec file (YAML or JSON).
     """
     # 1. Load spec
-    click.echo(f"馃搫 Loading spec: {spec_file}")
+    click.echo("[SPEC] Loading: " + spec_file)
     loader = SpecLoader(spec_file)
     if base_url:
         api_base_url = base_url
@@ -31,20 +32,20 @@ def main(spec_file, base_url, timeout, json_report, output):
         api_base_url = loader.get_base_url()
 
     if not api_base_url:
-        click.echo("鉂?No base URL found. Provide --base-url or add 'servers' to your spec.")
+        click.echo("[ERROR] No base URL found. Use --base-url or add servers to spec.")
         sys.exit(1)
 
-    click.echo(f"馃寪 Base URL: {api_base_url}")
+    click.echo("[URL] " + api_base_url)
 
     # 2. Generate test cases
     endpoints = loader.get_endpoints()
-    click.echo(f"馃搵 Found {len(endpoints)} endpoints")
+    click.echo("[ENDPOINTS] Found " + str(len(endpoints)))
     generator = TestGenerator(api_base_url, endpoints)
     test_cases = generator.generate()
-    click.echo(f"馃И Generated {len(test_cases)} test cases")
+    click.echo("[TESTS] Generated " + str(len(test_cases)) + " test cases")
 
     # 3. Run tests
-    click.echo("\n馃殌 Running tests...\n")
+    click.echo("\n[RUN] Executing tests...\n")
     runner = TestRunner(timeout=timeout)
     results = runner.run_all(test_cases)
 
@@ -55,18 +56,20 @@ def main(spec_file, base_url, timeout, json_report, output):
     # 5. Report
     reporter = Reporter()
 
-    if json_report:
+    if html_report:
+        report = reporter.html_report(results)
+    elif json_report:
         report = reporter.json_report(results)
     else:
         report = reporter.console_report(results)
 
-    click.echo(report)
+    click.echo(report if not html_report else "[OK] HTML report generated")
 
     # Save to file
     if output:
         with open(output, "w", encoding="utf-8") as f:
             f.write(report)
-        click.echo(f"\n馃搧 Report saved to: {output}")
+        click.echo("\n[FILE] Report saved to: " + output)
 
     # Exit code
     failed = sum(1 for r in results if not r["passed"])
