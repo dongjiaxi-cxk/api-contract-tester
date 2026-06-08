@@ -1,6 +1,7 @@
 # API Contract Tester
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
+[![CI](https://github.com/dongjiaxi-cxk/api-contract-tester/actions/workflows/tests.yml/badge.svg)](https://github.com/dongjiaxi-cxk/api-contract-tester/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-35%20passed-brightgreen.svg)](tests/)
 [![PyPI](https://img.shields.io/badge/pypi-v0.4.0-blue.svg)](https://pypi.org/project/act-tester/)
