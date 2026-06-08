@@ -1,39 +1,44 @@
 """Execute HTTP requests for test cases with concurrency support."""
 
-import requests
+from __future__ import annotations
+
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
+
+import requests
+
 from .test_generator import TestCase
 
 
 class TestRunner:
     """Runs test cases against a live API."""
 
-    def __init__(self, timeout: int = 10, retries: int = 0, retry_delay: float = 1.0):
-        self.timeout = timeout
-        self.retries = retries
-        self.retry_delay = retry_delay
+    def __init__(self, timeout: int = 10, retries: int = 0, retry_delay: float = 1.0) -> None:
+        self.timeout: int = timeout
+        self.retries: int = retries
+        self.retry_delay: float = retry_delay
 
-    def run(self, test_case: TestCase) -> dict:
+    def run(self, test_case: TestCase) -> dict[str, Any]:
         """Execute a single test case, with optional retries on failure."""
-        last_result = None
+        last_result: dict[str, Any] = {}
         for attempt in range(self.retries + 1):
-            result = self._run_once(test_case)
+            result: dict[str, Any] = self._run_once(test_case)
             if result.get("error") is None:
                 return result
             last_result = result
             if attempt < self.retries:
-                import time
                 time.sleep(self.retry_delay)
         return last_result
 
-    def _run_once(self, test_case: TestCase) -> dict:
+    def _run_once(self, test_case: TestCase) -> dict[str, Any]:
         """Execute a single HTTP request."""
-        path = test_case.path
+        path: str = test_case.path
         for key, value in test_case.path_params.items():
             path = path.replace("{" + key + "}", str(value))
 
-        url = test_case.base_url + path
-        result = {
+        url: str = test_case.base_url + path
+        result: dict[str, Any] = {
             "test_case": test_case,
             "passed": False,
             "status_code": None,
@@ -42,7 +47,7 @@ class TestRunner:
         }
 
         try:
-            response = requests.request(
+            response: requests.Response = requests.request(
                 method=test_case.method,
                 url=url,
                 params=test_case.params,
@@ -64,26 +69,18 @@ class TestRunner:
 
         return result
 
-    def run_all(self, test_cases: list) -> list:
+    def run_all(self, test_cases: list[TestCase]) -> list[dict[str, Any]]:
         """Run all test cases sequentially."""
         return [self.run(tc) for tc in test_cases]
 
-    def run_all_concurrent(self, test_cases: list, workers: int = 5) -> list:
-        """Run all test cases concurrently with ThreadPoolExecutor.
-
-        Args:
-            test_cases: List of TestCase objects.
-            workers: Number of concurrent workers (default 5).
-
-        Returns:
-            List of result dicts in the same order as test_cases.
-        """
-        results_map = {}
+    def run_all_concurrent(self, test_cases: list[TestCase], workers: int = 5) -> list[dict[str, Any]]:
+        """Run all test cases concurrently with ThreadPoolExecutor."""
+        results_map: dict[int, dict[str, Any]] = {}
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(self.run, tc): i for i, tc in enumerate(test_cases)}
+            futures: dict = {executor.submit(self.run, tc): i for i, tc in enumerate(test_cases)}
             for future in as_completed(futures):
-                idx = futures[future]
+                idx: int = futures[future]
                 try:
                     results_map[idx] = future.result()
                 except Exception as e:

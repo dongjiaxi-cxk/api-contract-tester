@@ -1,43 +1,26 @@
 """Generate test cases from OpenAPI endpoint definitions."""
 
+from __future__ import annotations
+
 import os
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
-
-@dataclass
-class TestCase:
-    """A single API test case."""
-
-    name: str
-    method: str
-    path: str
-    base_url: str
-    params: dict = field(default_factory=dict)
-    headers: dict = field(default_factory=dict)
-    path_params: dict = field(default_factory=dict)
-    body: dict | None = None
-    expected_status: int = 200
-    expected_content_type: str = ""
-    response_schema: dict | None = None
-    verify_ssl: bool = True
-
-
-_ENV_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+_ENV_RE: re.Pattern = re.compile(r"\$\{(\w+)\}|\$(\w+)")
 
 
 def resolve_env(value: str) -> str:
     """Replace ${VAR} or $VAR with environment variable values."""
-    def _replacer(m):
-        name = m.group(1) or m.group(2)
+    def _replacer(m: re.Match) -> str:
+        name: str = m.group(1) or m.group(2)
         return os.environ.get(name, "")
-
     return _ENV_RE.sub(_replacer, value)
 
 
 def resolve_env_in_dict(data: dict) -> dict:
     """Recursively resolve env vars in dict values."""
-    result = {}
+    result: dict = {}
     for key, value in data.items():
         if isinstance(value, str):
             result[key] = resolve_env(value)
@@ -54,26 +37,43 @@ def resolve_env_in_dict(data: dict) -> dict:
     return result
 
 
+@dataclass
+class TestCase:
+    """A single API test case."""
+    name: str
+    method: str
+    path: str
+    base_url: str
+    params: dict = field(default_factory=dict)
+    headers: dict = field(default_factory=dict)
+    path_params: dict = field(default_factory=dict)
+    body: dict | None = None
+    expected_status: int = 200
+    expected_content_type: str = ""
+    response_schema: dict | None = None
+    verify_ssl: bool = True
+
+
 class TestGenerator:
     """Generates test cases from OpenAPI spec endpoints."""
 
-    def __init__(self, base_url: str, endpoints: list, default_headers: dict | None = None):
-        self.base_url = base_url.rstrip("/")
-        self.endpoints = endpoints
-        self.default_headers = default_headers or {}
+    def __init__(self, base_url: str, endpoints: list[dict], default_headers: dict | None = None) -> None:
+        self.base_url: str = base_url.rstrip("/")
+        self.endpoints: list[dict] = endpoints
+        self.default_headers: dict = default_headers or {}
 
-    def generate(self) -> list:
+    def generate(self) -> list[TestCase]:
         """Generate test cases for all endpoints."""
-        test_cases = []
+        test_cases: list[TestCase] = []
 
         for endpoint in self.endpoints:
-            method = endpoint["method"]
-            path = endpoint["path"]
-            operation_id = endpoint["operation_id"] or f"{method}{path}"
+            method: str = endpoint["method"]
+            path: str = endpoint["path"]
+            operation_id: str = endpoint["operation_id"] or f"{method}{path}"
 
-            expected_status = 200
-            response_schema = None
-            responses = endpoint.get("responses", {})
+            expected_status: int = 200
+            response_schema: dict | None = None
+            responses: dict = endpoint.get("responses", {})
             for status_code in responses:
                 if status_code.startswith("2"):
                     expected_status = int(status_code)
@@ -83,20 +83,20 @@ class TestGenerator:
                     response_schema = json_content.get("schema")
                     break
 
-            params = {}
-            path_params = {}
+            params: dict = {}
+            path_params: dict = {}
             for param in endpoint.get("parameters", []):
                 if param.get("in") == "query" and param.get("required"):
                     params[param["name"]] = self._sample_value(param)
                 elif param.get("in") == "path":
                     path_params[param["name"]] = self._sample_value(param)
 
-            body = None
-            request_body = endpoint.get("request_body")
+            body: dict | None = None
+            request_body: dict | None = endpoint.get("request_body")
             if request_body and method in ("POST", "PUT", "PATCH"):
                 content = request_body.get("content", {})
                 if "application/json" in content:
-                    schema = content["application/json"].get("schema", {})
+                    schema: dict = content["application/json"].get("schema", {})
                     body = self._generate_body(schema)
 
             test_cases.append(TestCase(
@@ -114,9 +114,9 @@ class TestGenerator:
 
         return test_cases
 
-    def _sample_value(self, param: dict):
-        schema = param.get("schema", {})
-        schema_type = schema.get("type", "string")
+    def _sample_value(self, param: dict) -> str | int:
+        schema: dict = param.get("schema", {})
+        schema_type: str = schema.get("type", "string")
         if schema_type == "integer":
             return 1
         elif schema_type == "boolean":
@@ -127,11 +127,11 @@ class TestGenerator:
         if not schema or "properties" not in schema:
             return {}
 
-        body = {}
-        required_fields = schema.get("required", [])
+        body: dict = {}
+        required_fields: list = schema.get("required", [])
         for field_name in required_fields:
-            prop = schema["properties"].get(field_name, {})
-            prop_type = prop.get("type", "string")
+            prop: dict = schema["properties"].get(field_name, {})
+            prop_type: str = prop.get("type", "string")
             if prop_type == "integer":
                 body[field_name] = 1
             elif prop_type == "string":
